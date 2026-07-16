@@ -1,3 +1,4 @@
+
 from pathlib import Path
 import pandas as pd
 import plotly.graph_objects as go
@@ -65,7 +66,7 @@ def main() -> None:
         positions = st.multiselect("Глобальная позиция", options=POSITIONS, default=POSITIONS)
         leagues = st.multiselect("Лиги", options=sorted(df["League"].unique()), default=LEAGUES)
         
-        # --- НОВЫЙ ФИЛЬТР ПО РИСКУ ТРАВМ ---
+        # --- ФИЛЬТР ПО РИСКУ ТРАВМ ---
         injury_options = ["LOW", "HIGH"]
         selected_injury_risks = st.multiselect("Допустимый риск травм", options=injury_options, default=injury_options)
         
@@ -96,7 +97,7 @@ def main() -> None:
 
     min_price, max_price = price_range[0] * 1_000_000, price_range[1] * 1_000_000
     
-    # Применяем фильтрацию, включая новый фильтр injury_risk
+    # Применяем фильтрацию
     f_df = df[
         (df["Age"] >= age_range[0]) & (df["Age"] <= age_range[1]) &
         (df["Height"] >= height_range[0]) & (df["Height"] <= height_range[1]) &
@@ -155,7 +156,7 @@ def main() -> None:
                             for m_idx, m in enumerate(metrics):
                                 m_cols[m_idx].metric(m, f"{row[m]}")
 
-    # ВКЛАДКА 2: СРАВНЕНИЕ ИГРОКОВ
+    # ВКЛАДКА 2: СРАВНЕНИЕ ИГРОКОВ (Обновленная, с крупным ярким радаром)
     with tab_compare:
         all_names = df["Player"].tolist()
         c1, c2 = st.columns(2)
@@ -176,12 +177,61 @@ def main() -> None:
             categories_closed = categories + [categories[0]]
 
             fig = go.Figure()
-            for p_name, (l_c, f_c) in zip([p_a, p_b], [("#00D4AA", "rgba(0, 212, 170, 0.2)"), ("#4FC3F7", "rgba(79, 195, 247, 0.2)")]):
+            
+            # Настройка контрастных неоновых цветов для яркого разделения
+            player_styles = [
+                {
+                    "name": p_a,
+                    "line_color": "#00F2FE",        # Яркий неоновый бирюзовый
+                    "fill_color": "rgba(0, 242, 254, 0.15)"
+                },
+                {
+                    "name": p_b,
+                    "line_color": "#FF007F",        # Яркий неоновый розовый
+                    "fill_color": "rgba(255, 0, 127, 0.15)"
+                }
+            ]
+
+            for p_name, style in zip([p_a, p_b], player_styles):
                 p_idx = df[df["Player"] == p_name].index[0]
                 values = normalized.loc[p_idx, metrics].tolist()
-                fig.add_trace(go.Scatterpolar(r=values + [values[0]], theta=categories_closed, fill="toself", name=p_name, line=dict(color=l_c, width=2), fillcolor=f_c))
+                fig.add_trace(go.Scatterpolar(
+                    r=values + [values[0]], 
+                    theta=categories_closed, 
+                    fill="toself", 
+                    name=style["name"], 
+                    line=dict(color=style["line_color"], width=3),
+                    fillcolor=style["fill_color"]
+                ))
             
-            fig.update_layout(polar=dict(bgcolor="rgba(26,29,36,0.9)", radialaxis=dict(visible=True, range=[0,1])), paper_bgcolor="rgba(0,0,0,0)", height=450)
+            # Делаем диаграмму крупнее и красивее
+            fig.update_layout(
+                polar=dict(
+                    bgcolor="rgba(17, 19, 24, 0.8)", 
+                    radialaxis=dict(
+                        visible=True, 
+                        range=[0, 1],
+                        gridcolor="rgba(255, 255, 255, 0.1)",
+                        linecolor="rgba(255, 255, 255, 0.2)",
+                        tickfont=dict(color="#9CA3AF", size=10)
+                    ),
+                    angularaxis=dict(
+                        gridcolor="rgba(255, 255, 255, 0.1)",
+                        tickfont=dict(color="#FAFAFA", size=12, family="sans-serif")
+                    )
+                ),
+                paper_bgcolor="rgba(0,0,0,0)", 
+                height=550, 
+                margin=dict(l=80, r=80, t=40, b=40),
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.05,
+                    xanchor="center",
+                    x=0.5,
+                    font=dict(size=14, color="#FAFAFA")
+                )
+            )
             st.plotly_chart(fig, use_container_width=True)
 
             col_left, col_right = st.columns(2)
@@ -222,7 +272,6 @@ def main() -> None:
 
             similar_df = find_similar_players_weighted(calc_df, ref_player, top_n=3, weights=weights)
             
-            # --- БЛОК 1: ВИЗУАЛЬНЫЕ КАРТОЧКИ АНАЛОГОВ С ФОТОГРАФИЯМИ И РИСКОМ ---
             st.markdown("##### 🎯 ТОП-3 Найденных аналога")
             
             cards_df = similar_df[similar_df["Player"] != ref_player].head(3)
@@ -262,7 +311,6 @@ def main() -> None:
             
             st.markdown("---")
             
-            # --- БЛОК 2: ТАБЛИЦА С ДОБАВЛЕНИЕМ СТОЛБЦА injury_risk ---
             st.markdown(f"##### 📊 Детальное сравнение метрик")
             st.caption("Первая строка (голубая) — выбранный эталон. Зелёным цветом подсвечены параметры аналогов, максимально близкие к нему или превосходящие его.")
 
@@ -311,3 +359,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
